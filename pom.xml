@@ -8,7 +8,7 @@
     <artifactId>vgrid-frontend</artifactId>
     <version>1.0.0</version>
     <packaging>jar</packaging>
-    <name>VGrid - Smart EV Charging Management System (Frontend)</name>
+    <name>VGrid - Smart EV Charging Management System</name>
 
     <properties>
         <maven.compiler.release>17</maven.compiler.release>
@@ -22,6 +22,31 @@
             <groupId>org.openjfx</groupId>
             <artifactId>javafx-controls</artifactId>
             <version>${javafx.version}</version>
+        </dependency>
+        <!-- MySQL JDBC driver (also in lib/ for run-vgrid.bat) -->
+        <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+            <version>8.4.0</version>
+        </dependency>
+        <!-- Gson: reads the JSON from the Open Charge Map API (also in lib/ for run-vgrid.bat) -->
+        <dependency>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
+            <version>2.11.0</version>
+        </dependency>
+        <!-- WebSocket server for the OCPP 1.6 server (also in lib/ for the .bat files) -->
+        <dependency>
+            <groupId>org.java-websocket</groupId>
+            <artifactId>Java-WebSocket</artifactId>
+            <version>1.5.7</version>
+        </dependency>
+        <!-- Silences the logging library that Java-WebSocket uses (the OCPP server prints its own log) -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-nop</artifactId>
+            <version>2.0.13</version>
+            <scope>runtime</scope>
         </dependency>
     </dependencies>
 

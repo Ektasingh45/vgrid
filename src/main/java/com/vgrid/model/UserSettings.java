@@ -1,7 +1,8 @@
 package com.vgrid.model;
 
-/** User preferences. Kept in memory for the current session only. */
+/** A user's preferences, saved per account. */
 public class UserSettings {
+    private City city;
     private Location homeLocation;
     private ConnectorType preferredConnector;
     private double preferredPowerKw;
@@ -12,9 +13,10 @@ public class UserSettings {
     private boolean notifyAlternativeSuggestions;
     private boolean emailUpdates;
 
-    public static UserSettings defaults(Location home) {
+    public static UserSettings defaults(City city) {
         UserSettings s = new UserSettings();
-        s.homeLocation = home;
+        s.city = city;
+        s.homeLocation = city.areas().get(0);
         s.preferredConnector = ConnectorType.CCS2;
         s.preferredPowerKw = 50;
         s.maxDistanceKm = 10;
@@ -26,6 +28,7 @@ public class UserSettings {
         return s;
     }
 
+    public City getCity() { return city; }
     public Location getHomeLocation() { return homeLocation; }
     public ConnectorType getPreferredConnector() { return preferredConnector; }
     public double getPreferredPowerKw() { return preferredPowerKw; }
@@ -36,6 +39,7 @@ public class UserSettings {
     public boolean isNotifyAlternativeSuggestions() { return notifyAlternativeSuggestions; }
     public boolean isEmailUpdates() { return emailUpdates; }
 
+    public void setCity(City city) { this.city = city; }
     public void setHomeLocation(Location homeLocation) { this.homeLocation = homeLocation; }
     public void setPreferredConnector(ConnectorType preferredConnector) { this.preferredConnector = preferredConnector; }
     public void setPreferredPowerKw(double preferredPowerKw) { this.preferredPowerKw = preferredPowerKw; }

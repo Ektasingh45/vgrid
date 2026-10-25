@@ -1,6 +1,8 @@
 package com.vgrid.view;
 
 import com.vgrid.controller.AppController;
+import com.vgrid.model.City;
+import com.vgrid.model.CityImport;
 import com.vgrid.model.ConnectorType;
 import com.vgrid.model.Location;
 import com.vgrid.model.UserSettings;
@@ -18,10 +20,11 @@ import javafx.util.StringConverter;
 
 import java.util.List;
 
-/** Preferences kept in memory for the current session. */
+/** The signed-in user's preferences, including their city, and where the station data comes from. */
 public class SettingsView extends BaseView {
     private static final List<Double> POWER_OPTIONS = List.of(7.4, 22.0, 30.0, 50.0, 60.0, 120.0);
 
+    private final ComboBox<City> cityBox = new ComboBox<>();
     private final ComboBox<Location> homeBox = new ComboBox<>();
     private final ComboBox<ConnectorType> connectorBox = new ComboBox<>();
     private final ComboBox<Double> powerBox = new ComboBox<>();
@@ -38,7 +41,14 @@ public class SettingsView extends BaseView {
     public SettingsView(AppController app) {
         super(app);
 
-        homeBox.getItems().setAll(app.getStationService().getLocations());
+        cityBox.getItems().setAll(City.ALL);
+        // Choosing another city offers that city's areas as starting points.
+        cityBox.valueProperty().addListener((obs, oldCity, city) -> {
+            if (city != null && !city.equals(oldCity)) {
+                homeBox.getItems().setAll(city.areas());
+                homeBox.setValue(city.areas().get(0));
+            }
+        });
         connectorBox.getItems().setAll(ConnectorType.values());
         powerBox.getItems().setAll(POWER_OPTIONS);
         powerBox.setConverter(new StringConverter<>() {
@@ -56,13 +66,14 @@ public class SettingsView extends BaseView {
         inAppAndEmail.setToggleGroup(deliveryGroup);
         Ui.keepOneSelected(deliveryGroup);
 
-        content.getChildren().addAll(buildPreferencesCard(), buildNotificationsCard(), buildDemoCard(), buildActionBar());
+        content.getChildren().addAll(buildPreferencesCard(), buildNotificationsCard(), buildDataCard(), buildActionBar());
         loadFrom(app.getSettings());
     }
 
     private Node buildPreferencesCard() {
         ResponsiveGrid grid = new ResponsiveGrid(260, 18);
         grid.getChildren().addAll(
+                Ui.field("City", cityBox),
                 Ui.field("Home / usual starting location", homeBox),
                 Ui.field("Preferred connector", connectorBox),
                 Ui.field("Preferred charging power", powerBox),
@@ -70,7 +81,7 @@ public class SettingsView extends BaseView {
                 sliderField("Maximum waiting time", waitSlider, "min"));
         VBox card = Ui.card();
         card.getChildren().addAll(cardHeader(Icons.TUNE, "Charging preferences",
-                "Used by the dashboard, station distances and Smart Recommendations."), grid);
+                "Your city decides which stations you see. A new city's stations are downloaded the first time."), grid);
         return card;
     }
 
@@ -85,18 +96,37 @@ public class SettingsView extends BaseView {
         return card;
     }
 
-    private Node buildDemoCard() {
-        Button reset = Ui.dangerButton("Reset Demo Data", Icons.REFRESH);
-        reset.setOnAction(e -> app.confirm("Reset all demo data?",
-                "Stations, reservations, alerts and settings will return to their original sample values. "
-                        + "Anything you created in this session will be removed.",
-                "Reset Demo Data", true, app::resetDemoData));
-        HBox row = new HBox(12, Ui.wrapLabel("Everything you change in this demo lives only in memory and is lost when "
-                + "the app closes. You can also restore the original sample data at any time.", "muted"), Ui.hSpacer(), reset);
-        HBox.setHgrow(row.getChildren().get(0), Priority.ALWAYS);
-        row.setAlignment(Pos.CENTER_LEFT);
+    /** Where the stations and the user's data come from, plus "Refresh stations". */
+    private Node buildDataCard() {
+        City city = app.getSettings().getCity();
+        CityImport loaded = app.getImportService().currentImport(city);
+        String stationText;
+        if (loaded == null) {
+            stationText = "No stations loaded for " + city.name() + " yet.";
+        } else if (loaded.fromOpenChargeMap()) {
+            stationText = Format.plural(loaded.stationCount(), "real station") + " for " + city.name()
+                    + " from Open Charge Map (© contributors, CC BY 4.0), downloaded " + Format.relative(loaded.importedAt())
+                    + ". Names, addresses, connectors and power are real.";
+        } else {
+            stationText = "Built-in sample stations for " + city.name() + ". Add an Open Charge Map API key "
+                    + "(ocm.api.key in db.properties) and press Refresh to load real stations.";
+        }
+        Button refresh = Ui.secondaryButton("Refresh Stations", Icons.REFRESH);
+        refresh.setOnAction(e -> app.refreshStations());
+        HBox stationRow = new HBox(12, Ui.wrapLabel(stationText, "muted"), Ui.hSpacer(), refresh);
+        HBox.setHgrow(stationRow.getChildren().get(0), Priority.ALWAYS);
+        stationRow.setAlignment(Pos.CENTER_LEFT);
+
+        boolean database = app.isDatabaseMode();
+        Label storage = Ui.wrapLabel(database
+                ? "Your account, bookings, check-ins, alerts and settings are saved in " + app.getDataDescription()
+                  + ". Charger status comes from VGrid bookings, check-ins and problem reports."
+                : "Offline mode: no database is connected, so everything is lost when the app closes.", "muted");
+
         VBox card = Ui.card();
-        card.getChildren().addAll(cardHeader(Icons.INFO, "Demo data", "This frontend runs without a database or server."), row);
+        card.getChildren().addAll(cardHeader(Icons.DATABASE, "Data sources",
+                        "Station details come from Open Charge Map. Live status comes from VGrid users."),
+                stationRow, new Separator(), storage);
         return card;
     }
 
@@ -105,7 +135,7 @@ public class SettingsView extends BaseView {
         errorLabel.setManaged(false);
         Button restore = Ui.secondaryButton("Restore Defaults", Icons.REFRESH);
         restore.setOnAction(e -> {
-            loadFrom(UserSettings.defaults(app.getStationService().getLocations().get(0)));
+            loadFrom(app.getSettingsService().defaults(cityBox.getValue()));
             app.showToast("Defaults restored - select Save Changes to apply", AppController.ToastType.INFO);
         });
         Button save = Ui.primaryButton("Save Changes", Icons.CHECK);
@@ -119,6 +149,8 @@ public class SettingsView extends BaseView {
     }
 
     private void loadFrom(UserSettings s) {
+        cityBox.setValue(s.getCity());
+        homeBox.getItems().setAll(s.getCity().areas());
         homeBox.setValue(s.getHomeLocation());
         connectorBox.setValue(s.getPreferredConnector());
         powerBox.setValue(s.getPreferredPowerKw());
@@ -136,7 +168,8 @@ public class SettingsView extends BaseView {
         boolean anyAlerts = reservationUpdates.isSelected() || chargerAlerts.isSelected()
                 || alternativeSuggestions.isSelected();
         String error = null;
-        if (homeBox.getValue() == null || connectorBox.getValue() == null || powerBox.getValue() == null) {
+        if (cityBox.getValue() == null || homeBox.getValue() == null || connectorBox.getValue() == null
+                || powerBox.getValue() == null) {
             error = "Please fill in all charging preferences.";
         } else if (inAppAndEmail.isSelected() && !anyAlerts) {
             error = "Turn on at least one alert type to receive email updates.";
@@ -149,7 +182,7 @@ public class SettingsView extends BaseView {
             return;
         }
 
-        UserSettings s = app.getSettings();
+        UserSettings s = app.getSettingsService().defaults(cityBox.getValue());
         s.setHomeLocation(homeBox.getValue());
         s.setPreferredConnector(connectorBox.getValue());
         s.setPreferredPowerKw(powerBox.getValue());
@@ -162,8 +195,7 @@ public class SettingsView extends BaseView {
 
         errorLabel.setVisible(false);
         errorLabel.setManaged(false);
-        app.notifyDataChanged();
-        app.showToast("Settings saved for this session", AppController.ToastType.SUCCESS);
+        app.saveSettings(s); // downloads the new city's stations first if needed
     }
 
     private static HBox cardHeader(String icon, String title, String subtitle) {

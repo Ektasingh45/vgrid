@@ -13,7 +13,7 @@ import javafx.scene.control.Label;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 
-/** Shown after a successful (simulated) booking. */
+/** Shown after a successful booking. */
 public class ReservationSuccessDialog extends VBox {
 
     public ReservationSuccessDialog(AppController app, Reservation reservation) {
@@ -45,10 +45,11 @@ public class ReservationSuccessDialog extends VBox {
         getChildren().addAll(
                 Ui.iconTile(Icons.CHECK, "success", 64, 32),
                 Ui.label("Reservation confirmed!", "dialog-title"),
-                Ui.wrapLabel("Your demo reservation ID is", "dialog-message"),
+                Ui.wrapLabel("Your reservation ID is", "dialog-message"),
                 id,
                 summary,
-                Ui.wrapLabel("This is a simulated reservation for demonstration only - no real charger has been booked.",
+                Ui.wrapLabel("The slot is now blocked for other VGrid drivers. When you arrive, open the station and "
+                        + "press Start charging. (VGrid is a student project: the operator itself is not notified.)",
                         "small-muted", "center-text"),
                 buttons);
     }

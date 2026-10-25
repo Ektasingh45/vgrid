@@ -1,6 +1,7 @@
 package com.vgrid.view;
 
 import com.vgrid.controller.AppController;
+import com.vgrid.controller.Refreshable;
 import com.vgrid.model.ConnectorType;
 import com.vgrid.model.CongestionLevel;
 import com.vgrid.model.Station;
@@ -18,8 +19,11 @@ import javafx.scene.layout.VBox;
 
 import java.util.List;
 
-/** Station discovery: search box + filters that update the results instantly. */
-public class FindStationsView extends BaseView {
+/**
+ * Station discovery: search box + filters that update the results instantly.
+ * The live refresh redraws only the results, so typed text and chosen filters are kept.
+ */
+public class FindStationsView extends BaseView implements Refreshable {
     private static final String ANY_DISTANCE = "Any distance";
     private static final String ALL_CONNECTORS = "All connectors";
     private static final String ANY_CONGESTION = "Any congestion";
@@ -37,7 +41,8 @@ public class FindStationsView extends BaseView {
     public FindStationsView(AppController app) {
         super(app);
 
-        searchField.setPromptText("Search by station name or area, e.g. \"GreenPoint\" or \"Baner\"");
+        searchField.setPromptText("Search " + app.getStationService().getCity().name()
+                + " by station name, operator or area, e.g. \"" + app.getStationService().getHomeLocation().name() + "\"");
         HBox searchBox = new HBox(10, Icons.create(Icons.SEARCH, 18), searchField);
         HBox.setHgrow(searchField, Priority.ALWAYS);
         HBox.setHgrow(searchBox, Priority.ALWAYS);
@@ -69,7 +74,7 @@ public class FindStationsView extends BaseView {
                 Ui.field("Distance from " + app.getStationService().getHomeLocation().name(), distanceBox),
                 Ui.field("Connector type", connectorBox),
                 Ui.field("Availability", availabilityBox),
-                Ui.field("Congestion (simulated)", congestionBox));
+                Ui.field("Congestion now", congestionBox));
 
         VBox filterCard = Ui.card("filter-card");
         filterCard.getChildren().addAll(searchRow, filters);
@@ -97,6 +102,11 @@ public class FindStationsView extends BaseView {
         applyFilters();
     }
 
+    @Override
+    public void refresh() {
+        applyFilters();
+    }
+
     private void applyFilters() {
         Double maxDistance = null;
         int distanceIndex = distanceBox.getSelectionModel().getSelectedIndex();
@@ -111,9 +121,18 @@ public class FindStationsView extends BaseView {
                 connector, availabilityBox.getValue(), congestion);
 
         resultCount.setText(Format.plural(stations.size(), "station") + " found");
-        resultHint.setText("Sorted by distance from " + app.getStationService().getHomeLocation().name()
-                + " · availability and congestion are simulated");
+        resultHint.setText(app.getStationService().getCity().name() + " · sorted by distance from "
+                + app.getStationService().getHomeLocation().name()
+                + " · availability from VGrid bookings, check-ins and reports");
 
+        if (app.getStationService().getAllStations().isEmpty()) {
+            resultsArea.getChildren().setAll(new EmptyState(Icons.DATABASE,
+                    "No stations loaded for " + app.getStationService().getCity().name(),
+                    "Real stations come from Open Charge Map. Check the API key in db.properties and your internet "
+                            + "connection, then press Refresh Stations in Settings.",
+                    "Open Settings", () -> app.navigate(com.vgrid.controller.Screen.SETTINGS)));
+            return;
+        }
         if (stations.isEmpty()) {
             resultsArea.getChildren().setAll(new EmptyState(Icons.SEARCH, "No stations match your filters",
                     "Try a wider distance, a different connector type or clear the search text.",

@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Reservation protection demo: the reserved charger "fails" (simulated) and the user
+ * Reservation protection: the reserved charger was reported out of service and the user
  * picks a compatible alternative station for the same date and time slot.
  */
 public class AlternativesView extends BaseView {
@@ -54,7 +54,7 @@ public class AlternativesView extends BaseView {
             return;
         }
 
-        List<RecommendationResult> alternatives = app.getRecommendationService().findAlternatives(reservation, 5);
+        List<RecommendationResult> alternatives = app.getReservationService().findAlternatives(reservation, 5);
 
         content.getChildren().addAll(buildBanner(), Ui.sectionHeader("Compatible alternatives",
                 "Same connector (" + reservation.getCharger().getConnectorType() + "), same date and time slot · "
@@ -157,9 +157,15 @@ public class AlternativesView extends BaseView {
         app.confirm("Switch to " + choice.station().getName() + "?",
                 "Reservation " + reservation.getId() + " will move to charger " + choice.bestCharger().getLabel()
                         + " on " + Format.longDate(reservation.getDate()) + ", " + reservation.getTimeSlot()
-                        + ". This is a simulated change for demonstration.",
+                        + ". VGrid checks that this slot is still free before moving it.",
                 "Confirm Change", false, () -> {
-                    app.getReservationService().switchToAlternative(reservation, choice.station(), choice.bestCharger());
+                    try {
+                        app.getReservationService().switchToAlternative(reservation, choice.station(), choice.bestCharger());
+                    } catch (IllegalArgumentException ex) {
+                        app.showToast(ex.getMessage(), AppController.ToastType.ERROR);
+                        app.openAlternatives(app.getReservationService().findById(reservation.getId()));
+                        return;
+                    }
                     app.navigate(Screen.RESERVATIONS);
                     app.showToast(reservation.getId() + " moved to " + choice.station().getName(),
                             AppController.ToastType.SUCCESS);

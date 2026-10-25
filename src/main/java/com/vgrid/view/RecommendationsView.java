@@ -16,7 +16,7 @@ import java.util.List;
 
 /**
  * Smart Recommendations: the user describes the trip, and RecommendationService ranks
- * the sample stations with simple, explainable rules.
+ * the stations of the user's city with simple, explainable rules.
  */
 public class RecommendationsView extends BaseView {
     private static final List<Double> POWER_OPTIONS = List.of(0.0, 7.4, 22.0, 50.0, 100.0);
@@ -60,8 +60,9 @@ public class RecommendationsView extends BaseView {
 
     private Node buildForm() {
         VBox titles = new VBox(3, Ui.label("Plan your charge", "section-title"),
-                Ui.wrapLabel("Tell VGrid what you need. Stations are ranked with simple, transparent demo rules "
-                        + "using simulated congestion data.", "section-subtitle"));
+                Ui.wrapLabel("Tell VGrid what you need. Stations in " + app.getStationService().getCity().name()
+                        + " are ranked with simple, transparent rules using current bookings and check-ins.",
+                        "section-subtitle"));
         HBox.setHgrow(titles, Priority.ALWAYS);
         HBox header = new HBox(14, Ui.iconTile(Icons.SPARKLE, "green", 44, 22), titles);
         header.setAlignment(Pos.CENTER_LEFT);
@@ -173,10 +174,10 @@ public class RecommendationsView extends BaseView {
         }
 
         boolean peak = StationService.isPeakHour(request.arrivalTime());
-        Label simulated = StatusBadge.of("Simulated congestion", "neutral");
+        Label live = StatusBadge.of("Live occupancy + time-of-day rule", "neutral");
         HBox header = Ui.sectionHeader(Format.plural(results.size(), "station") + " ranked for you",
                 "Arriving at " + request.arrivalTime() + " from " + request.startLocation().name() + " · "
-                        + (peak ? "peak hour, so stations are busier" : "off-peak hour"), simulated);
+                        + (peak ? "peak hour, so stations are busier" : "off-peak hour"), live);
 
         resultsArea.getChildren().setAll(header, buildTopCard(results.get(0)));
 
@@ -191,8 +192,9 @@ public class RecommendationsView extends BaseView {
         resultsArea.getChildren().add(Ui.notice(Icons.INFO,
                 "How ranking works: stations without a compatible working charger, beyond your distance limit or "
                         + "above your waiting-time limit are excluded. The rest get a score out of 100 - shorter "
-                        + "distance and wait score higher, simulated congestion lowers the score, and free chargers "
-                        + "and higher power add a bonus. No machine learning is used in this demo.", "info"));
+                        + "distance and wait score higher, congestion (chargers reserved or in use now, raised at "
+                        + "peak hours) lowers the score, and free chargers and higher power add a bonus. "
+                        + "No machine learning is used.", "info"));
     }
 
     private Node buildTopCard(RecommendationResult result) {

@@ -20,6 +20,7 @@ public class StationCard extends VBox {
         double distance = app.getStationService().distanceFromHome(station);
         int available = station.getAvailableChargers();
         int total = station.getTotalChargers();
+        boolean anyWorking = !station.getWorkingChargers().isEmpty();
 
         // Header: icon, name, area, congestion badge
         Label name = Ui.label(station.getName(), "card-title");
@@ -35,7 +36,8 @@ public class StationCard extends VBox {
                 Ui.metric(Icons.PIN, "Distance", Format.distance(distance)),
                 Ui.metric(Icons.PLUG, "Available", available + " of " + total),
                 Ui.metric(Icons.BOLT, "Charging power", "Up to " + Format.power(station.getMaxPowerKw())),
-                Ui.metric(Icons.CLOCK, "Est. waiting", Format.minutes(station.getAverageWaitMinutes())));
+                Ui.metric(Icons.CLOCK, "Est. waiting",
+                        anyWorking ? Format.minutes(station.getAverageWaitMinutes()) : "Not charging"));
 
         // Connector chips + congestion badge
         FlowPane chips = new FlowPane(6, 6);
@@ -52,8 +54,10 @@ public class StationCard extends VBox {
         bar.getStyleClass().add(available == 0 ? "bar-amber" : "bar-green");
         Label barText = Ui.label(available > 0
                 ? Format.plural(available, "charger") + " free now"
-                : "All chargers busy - join the queue", "small-muted");
-        Label congestion = Ui.label("Predicted congestion: " + station.getCongestion() + " (simulated)", "small-muted");
+                : anyWorking ? "All chargers reserved or in use right now"
+                : "No working charger - all reported out of service", "small-muted");
+        Label congestion = Ui.label("Congestion now: " + station.getCongestion()
+                + " · from VGrid bookings and check-ins", "small-muted");
         VBox availability = new VBox(6, bar, new HBox(8, barText), congestion);
 
         Button details = Ui.grow(Ui.secondaryButton("View Details", null));

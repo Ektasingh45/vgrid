@@ -38,6 +38,7 @@ public final class StatusBadge {
     public static Label forCharger(ChargerStatus status) {
         return of(status.toString(), switch (status) {
             case AVAILABLE -> "success";
+            case RESERVED -> "neutral";
             case IN_USE -> "warning";
             case OUT_OF_SERVICE -> "danger";
         });

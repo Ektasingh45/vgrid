@@ -60,13 +60,19 @@ public class Sidebar extends VBox {
         Region spacer = new Region();
         VBox.setVgrow(spacer, Priority.ALWAYS);
 
-        // Demo-mode reminder at the bottom
-        HBox demoTitle = new HBox(8, Icons.create(Icons.INFO, 16), Ui.label("Demo mode", "demo-card-title"));
+        // Where the data comes from, at the bottom
+        boolean database = app.isDatabaseMode();
+        HBox demoTitle = new HBox(8, Icons.create(database ? Icons.DATABASE : Icons.INFO, 16),
+                Ui.label(database ? "Saved in MySQL" : "Offline mode", "demo-card-title"));
         demoTitle.setAlignment(Pos.CENTER_LEFT);
-        VBox demoCard = new VBox(6, demoTitle,
-                Ui.wrapLabel("All stations, congestion, reservations and alerts are simulated locally. "
-                        + "Nothing is sent to a server.", "demo-card-text"));
+        VBox demoCard = new VBox(6, demoTitle, Ui.wrapLabel(database
+                ? "Accounts and bookings are saved. Live charger status comes from VGrid bookings, "
+                  + "check-ins and driver reports."
+                : "MySQL is not connected, so nothing is saved when the app closes.", "demo-card-text"));
         demoCard.getStyleClass().add("demo-card");
+        if (database) {
+            demoCard.getStyleClass().add("demo-card-db");
+        }
 
         getChildren().addAll(spacer, demoCard);
     }

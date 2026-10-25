@@ -46,6 +46,16 @@ public class Reservation {
     }
 
     public LocalTime getSlotStart() {
-        return LocalTime.parse(timeSlot.substring(0, 5));
+        return slotStart(timeSlot);
+    }
+
+    /** "10:00 – 11:00" -> 10:00 */
+    public static LocalTime slotStart(String slot) {
+        return LocalTime.parse(slot.substring(0, 5));
+    }
+
+    /** 10:00 -> "10:00 – 11:00" (every slot is one hour long). */
+    public static String slotLabel(LocalTime start) {
+        return start + " – " + start.plusHours(1);
     }
 }

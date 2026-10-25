@@ -50,7 +50,7 @@ public class AlertsView extends BaseView implements Refreshable {
 
         content.getChildren().setAll(Ui.sectionHeader(
                 unread == 0 ? "You're all caught up" : "You have " + Format.plural(unread, "unread alert"),
-                "Reservation confirmations, charger issues and alternative suggestions (simulated events)",
+                "Reservation confirmations, charger problems reported by drivers and alternative suggestions",
                 markAll, clearRead));
 
         if (alerts.isEmpty()) {

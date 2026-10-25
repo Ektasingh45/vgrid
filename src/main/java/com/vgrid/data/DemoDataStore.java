@@ -1,192 +1,368 @@
 package com.vgrid.data;
 
+import com.vgrid.dao.*;
 import com.vgrid.model.*;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-
-import static com.vgrid.model.ChargerStatus.*;
-import static com.vgrid.model.ConnectorType.*;
+import java.time.LocalTime;
+import java.util.*;
+import java.util.function.Function;
 
 /**
- * Holds ALL demo data in memory using ArrayLists.
- *
- * This is the only class that "owns" data. In a later phase it can be replaced by
- * DAO classes that read/write MySQL through JDBC, while the services and screens stay the same.
- * Nothing here is real: stations, congestion and reservations are sample values.
+ * Offline mode: keeps all data in memory using ArrayLists. It implements the same DAO interfaces as
+ * the MySQL classes and behaves like a database (it stores rows and hands out copies), so the services
+ * cannot tell the difference. Used when db.properties says data.mode=memory or MySQL cannot be reached.
+ * Everything is lost when the app closes.
  */
-public final class DemoDataStore {
-    private static DemoDataStore instance;
+public final class DemoDataStore implements DataLayer, UserDao, StationDao, ReservationDao, ChargingDao,
+        NotificationDao, SettingsDao {
 
-    private final List<Location> locations = new ArrayList<>();
-    private final List<Station> stations = new ArrayList<>();
-    private final List<Reservation> reservations = new ArrayList<>();
-    private final List<AppNotification> notifications = new ArrayList<>();
-    private final List<ActivityItem> activities = new ArrayList<>();
-    private UserSettings settings;
-    private int nextReservationNumber;
-    private int nextNotificationId;
+    /** One reservation "row", like a line in the reservations table. */
+    private static final class Row {
+        final int number;
+        final int userId;
+        String stationId;
+        String chargerId;
+        final LocalDate date;
+        final String slot;
+        ReservationStatus status;
+        String note;
+        final LocalDateTime createdAt;
 
-    private DemoDataStore() {
-        loadSampleData();
-    }
-
-    public static DemoDataStore getInstance() {
-        if (instance == null) {
-            instance = new DemoDataStore();
+        Row(int number, int userId, String stationId, String chargerId, LocalDate date, String slot,
+            LocalDateTime createdAt) {
+            this.number = number;
+            this.userId = userId;
+            this.stationId = stationId;
+            this.chargerId = chargerId;
+            this.date = date;
+            this.slot = slot;
+            this.status = ReservationStatus.CONFIRMED;
+            this.createdAt = createdAt;
         }
-        return instance;
+
+        boolean active() {
+            return status == ReservationStatus.CONFIRMED || status == ReservationStatus.ACTION_REQUIRED;
+        }
+
+        LocalDateTime slotEnd() {
+            return date.atTime(Reservation.slotStart(slot)).plusHours(1);
+        }
+
+        String id() {
+            return "VG-" + number;
+        }
     }
 
-    public List<Location> getLocations() { return locations; }
-    public List<Station> getStations() { return stations; }
-    public List<Reservation> getReservations() { return reservations; }
-    public List<AppNotification> getNotifications() { return notifications; }
-    public List<ActivityItem> getActivities() { return activities; }
-    public UserSettings getSettings() { return settings; }
+    private final List<Account> accounts = new ArrayList<>();
+    private final Map<String, List<Station>> stationsByCity = new HashMap<>();
+    private final Map<String, CityImport> imports = new HashMap<>();
+    private final List<Row> reservations = new ArrayList<>();
+    private final List<ChargingSession> sessions = new ArrayList<>();
+    private final Map<Integer, List<AppNotification>> notifications = new HashMap<>();
+    private final Map<Integer, List<ActivityItem>> activities = new HashMap<>();
+    private final Map<Integer, UserSettings> settings = new HashMap<>();
+    private int nextUserId = 1;
+    private int nextReservationNumber = SampleData.FIRST_RESERVATION;
+    private int nextNotificationId = 1;
 
-    public String nextReservationId() {
-        return "VG-" + (nextReservationNumber++);
+    // ------------------------------------------------------------------ DataLayer
+
+    @Override public UserDao users() { return this; }
+    @Override public StationDao stations() { return this; }
+    @Override public ReservationDao reservations() { return this; }
+    @Override public ChargingDao charging() { return this; }
+    @Override public NotificationDao notifications() { return this; }
+    @Override public SettingsDao settings() { return this; }
+    /** The OCPP server needs MySQL, so offline mode never has OCPP chargers. */
+    @Override public OcppDao ocpp() { return Map::of; }
+    @Override public boolean isDatabase() { return false; }
+    @Override public String description() { return "Offline mode · data kept in memory"; }
+
+    // ------------------------------------------------------------------ users
+
+    @Override
+    public Optional<Account> findAccount(String email) {
+        return accounts.stream().filter(a -> a.user().email().equals(email)).findFirst();
     }
 
-    public int nextNotificationId() {
-        return nextNotificationId++;
+    @Override
+    public User createUser(String name, String email, String passwordHash) {
+        if (findAccount(email).isPresent()) {
+            throw new ConflictException("An account with this email already exists.");
+        }
+        User user = new User(nextUserId++, name, email);
+        accounts.add(new Account(user, passwordHash));
+        return user;
     }
 
-    /** Throws away every change made during the session and reloads the sample data. */
-    public void resetToSampleData() {
-        locations.clear();
-        stations.clear();
-        reservations.clear();
-        notifications.clear();
-        activities.clear();
-        loadSampleData();
+    // ------------------------------------------------------------------ stations
+
+    @Override
+    public List<Station> findStations(String cityId) {
+        return stationsByCity.getOrDefault(cityId, List.of()).stream()
+                .sorted(Comparator.comparing(Station::getName))
+                .map(DemoDataStore::copy).toList();
     }
 
-    // ------------------------------------------------------------------ sample data
-
-    private void loadSampleData() {
-        nextReservationNumber = 1043;
-        nextNotificationId = 1;
-
-        locations.add(new Location("Baner", 2.0, 8.0));
-        locations.add(new Location("Hinjewadi", -3.0, 10.0));
-        locations.add(new Location("Kothrud", 3.0, 3.0));
-        locations.add(new Location("Shivajinagar", 6.0, 6.0));
-        locations.add(new Location("Koregaon Park", 10.0, 6.0));
-        locations.add(new Location("Viman Nagar", 13.0, 9.0));
-        locations.add(new Location("Hadapsar", 12.0, 1.0));
-
-        settings = UserSettings.defaults(locations.get(0));
-
-        stations.add(new Station("ST01", "GreenPoint Charging Hub", "GreenPoint Energy",
-                "Plot 12, Baner Road", "Baner", 3.0, 8.5, CongestionLevel.LOW, 5, 18, 4.7,
-                "Open 24 hours", List.of("Café", "Wi-Fi", "Restroom", "Covered parking"),
-                chargers(charger("C1", CCS2, 60, AVAILABLE), charger("C2", CCS2, 60, IN_USE),
-                        charger("C3", TYPE_2, 22, AVAILABLE), charger("C4", TYPE_2, 22, AVAILABLE))));
-
-        stations.add(new Station("ST02", "VoltWay Express", "VoltWay",
-                "ITI Road, near Parihar Chowk", "Aundh", 4.5, 7.0, CongestionLevel.MODERATE, 12, 21, 4.5,
-                "6:00 AM – 11:00 PM", List.of("Restroom", "Lounge", "Snacks"),
-                chargers(charger("C1", CCS2, 120, IN_USE), charger("C2", CCS2, 120, AVAILABLE),
-                        charger("C3", CHADEMO, 50, AVAILABLE))));
-
-        stations.add(new Station("ST03", "ChargeNest Kothrud", "ChargeNest",
-                "Paud Road, opposite City Pride", "Kothrud", 3.2, 2.8, CongestionLevel.LOW, 8, 14, 4.3,
-                "7:00 AM – 10:00 PM", List.of("Restroom", "Shaded parking"),
-                chargers(charger("C1", TYPE_2, 7.4, AVAILABLE), charger("C2", TYPE_2, 7.4, AVAILABLE),
-                        charger("C3", TYPE_2, 7.4, IN_USE), charger("C4", CCS2, 30, IN_USE))));
-
-        stations.add(new Station("ST04", "Urban Plug Point", "UrbanPlug",
-                "FC Road, near Goodluck Chowk", "Shivajinagar", 6.2, 5.8, CongestionLevel.HIGH, 35, 20, 3.9,
-                "Open 24 hours", List.of("Food court", "Restroom"),
-                chargers(charger("C1", CCS2, 60, OUT_OF_SERVICE), charger("C2", CCS2, 60, IN_USE),
-                        charger("C3", TYPE_2, 22, IN_USE), charger("C4", BHARAT_DC001, 15, OUT_OF_SERVICE))));
-
-        stations.add(new Station("ST05", "EcoCharge Station", "EcoCharge",
-                "Rajiv Gandhi Infotech Park, Phase 1", "Hinjewadi", -2.5, 10.5, CongestionLevel.MODERATE, 10, 22, 4.6,
-                "Open 24 hours", List.of("Café", "Wi-Fi", "Restroom", "Security"),
-                chargers(charger("C1", CCS2, 150, AVAILABLE), charger("C2", CCS2, 150, AVAILABLE),
-                        charger("C3", CCS2, 150, IN_USE), charger("C4", TYPE_2, 22, AVAILABLE))));
-
-        stations.add(new Station("ST06", "PowerUp Mall Chargers", "PowerUp",
-                "North Main Road, Phoenix Plaza basement", "Koregaon Park", 10.2, 6.3, CongestionLevel.HIGH, 25, 24, 4.1,
-                "10:00 AM – 10:00 PM", List.of("Shopping", "Food court", "Restroom"),
-                chargers(charger("C1", TYPE_2, 22, AVAILABLE), charger("C2", TYPE_2, 22, IN_USE),
-                        charger("C3", CCS2, 60, IN_USE), charger("C4", CHADEMO, 50, OUT_OF_SERVICE))));
-
-        stations.add(new Station("ST07", "BlueBolt FastCharge", "BlueBolt",
-                "Airport Road, near Symbiosis", "Viman Nagar", 13.4, 9.2, CongestionLevel.LOW, 4, 19, 4.8,
-                "Open 24 hours", List.of("Lounge", "Wi-Fi", "Restroom", "Café"),
-                chargers(charger("C1", CCS2, 120, AVAILABLE), charger("C2", CCS2, 60, AVAILABLE),
-                        charger("C3", CHADEMO, 50, IN_USE))));
-
-        stations.add(new Station("ST08", "Sunrise EV Point", "Sunrise Mobility",
-                "Magarpatta Road, Gate 3", "Hadapsar", 12.3, 1.4, CongestionLevel.LOW, 3, 15, 4.2,
-                "6:00 AM – 11:00 PM", List.of("Restroom", "Tea stall"),
-                chargers(charger("C1", BHARAT_DC001, 15, AVAILABLE), charger("C2", BHARAT_DC001, 15, AVAILABLE),
-                        charger("C3", TYPE_2, 7.4, AVAILABLE))));
-
-        stations.add(new Station("ST09", "MetroCharge Pashan", "MetroCharge",
-                "Pashan–Sus Road, near NCL Colony", "Pashan", 1.0, 6.5, CongestionLevel.MODERATE, 15, 17, 4.0,
-                "7:00 AM – 11:00 PM", List.of("Restroom"),
-                chargers(charger("C1", CCS2, 30, AVAILABLE), charger("C2", TYPE_2, 22, IN_USE))));
-
-        stations.add(new Station("ST10", "Highway Hub Wakad", "Highway Hub",
-                "Mumbai–Bengaluru Highway service road", "Wakad", -0.5, 9.8, CongestionLevel.MODERATE, 14, 20, 4.4,
-                "Open 24 hours", List.of("Restaurant", "Restroom", "Wi-Fi"),
-                chargers(charger("C1", CCS2, 60, IN_USE), charger("C2", CCS2, 60, IN_USE),
-                        charger("C3", CCS2, 60, AVAILABLE), charger("C4", TYPE_2, 22, AVAILABLE))));
-
-        LocalDate today = LocalDate.now();
-        LocalDateTime now = LocalDateTime.now();
-
-        Reservation upcoming = new Reservation("VG-1042", stations.get(0), stations.get(0).getChargers().get(0),
-                today.plusDays(1), "10:00 – 11:00", ReservationStatus.CONFIRMED, now.minusHours(2));
-        Reservation needsAction = new Reservation("VG-1038", stations.get(3), stations.get(3).getChargers().get(0),
-                today.plusDays(2), "18:00 – 19:00", ReservationStatus.ACTION_REQUIRED, now.minusDays(1));
-        needsAction.setNote("Charger C1 reported out of service (simulated event).");
-        Reservation completed = new Reservation("VG-1021", stations.get(2), stations.get(2).getChargers().get(0),
-                today.minusDays(5), "14:00 – 15:00", ReservationStatus.COMPLETED, now.minusDays(6));
-        completed.setNote("Charged 6.8 kWh (sample data).");
-        Reservation cancelled = new Reservation("VG-1017", stations.get(1), stations.get(1).getChargers().get(0),
-                today.minusDays(9), "09:00 – 10:00", ReservationStatus.CANCELLED, now.minusDays(10));
-        reservations.add(upcoming);
-        reservations.add(needsAction);
-        reservations.add(completed);
-        reservations.add(cancelled);
-
-        notifications.add(new AppNotification(nextNotificationId(), NotificationType.CHARGER_UNAVAILABLE,
-                "Reserved charger unavailable",
-                "Charger C1 at Urban Plug Point is out of service for reservation VG-1038 (simulated event).",
-                now.minusMinutes(25), "VG-1038", false));
-        notifications.add(new AppNotification(nextNotificationId(), NotificationType.ALTERNATIVE_SUGGESTION,
-                "Compatible alternatives found",
-                "CCS2 chargers are free at nearby stations for VG-1038. Compare and switch in one step.",
-                now.minusMinutes(24), "VG-1038", false));
-        notifications.add(new AppNotification(nextNotificationId(), NotificationType.RESERVATION_CONFIRMED,
-                "Reservation VG-1042 confirmed",
-                "GreenPoint Charging Hub · Tomorrow, 10:00 – 11:00 · Charger C1 (CCS2, 60 kW).",
-                now.minusHours(2), "VG-1042", true));
-        notifications.add(new AppNotification(nextNotificationId(), NotificationType.INFO,
-                "Low congestion near you",
-                "Stations around Baner are quieter than usual this afternoon (simulated forecast).",
-                now.minusDays(1), null, true));
-
-        activities.add(new ActivityItem("Charger issue on VG-1038", "Urban Plug Point · simulated", now.minusMinutes(25)));
-        activities.add(new ActivityItem("Reserved GreenPoint Charging Hub", "VG-1042 · CCS2 · 60 kW", now.minusHours(2)));
-        activities.add(new ActivityItem("Searched stations near Baner", "7 stations within 10 km", now.minusDays(1)));
-        activities.add(new ActivityItem("Completed charging at ChargeNest Kothrud", "VG-1021 · 6.8 kWh", now.minusDays(5)));
-        activities.add(new ActivityItem("Cancelled reservation VG-1017", "VoltWay Express", now.minusDays(9)));
+    @Override
+    public Optional<Station> findStation(String stationId) {
+        return stored(stationId).map(DemoDataStore::copy);
     }
 
-    private static Charger charger(String id, ConnectorType type, double powerKw, ChargerStatus status) {
-        return new Charger(id, type, powerKw, status);
+    @Override
+    public void saveStations(String cityId, List<Station> stations, String source) {
+        Set<String> newIds = new HashSet<>();
+        List<Station> list = new ArrayList<>();
+        for (Station s : stations) {
+            newIds.add(s.getId());
+            list.add(copy(s));
+        }
+        // Keep old stations that a booking or check-in still points to.
+        for (Station old : stationsByCity.getOrDefault(cityId, List.of())) {
+            boolean used = reservations.stream().anyMatch(r -> r.stationId.equals(old.getId()))
+                    || sessions.stream().anyMatch(s -> s.stationId().equals(old.getId()));
+            if (!newIds.contains(old.getId()) && used) {
+                list.add(old);
+            }
+        }
+        stationsByCity.put(cityId, list);
+        imports.put(cityId, new CityImport(cityId, source, stations.size(), LocalDateTime.now()));
     }
 
-    private static List<Charger> chargers(Charger... chargers) {
-        return new ArrayList<>(List.of(chargers));
+    @Override
+    public Optional<CityImport> findImport(String cityId) {
+        return Optional.ofNullable(imports.get(cityId));
+    }
+
+    @Override
+    public void updateChargerStatus(String stationId, String chargerId, ChargerStatus status) {
+        stored(stationId).map(s -> s.findCharger(chargerId)).ifPresent(c ->
+                c.setStatus(status == ChargerStatus.OUT_OF_SERVICE ? ChargerStatus.OUT_OF_SERVICE : ChargerStatus.AVAILABLE));
+    }
+
+    private Optional<Station> stored(String stationId) {
+        return stationsByCity.values().stream().flatMap(List::stream)
+                .filter(s -> s.getId().equals(stationId)).findFirst();
+    }
+
+    /** A separate copy, like a fresh row from a database, so live statuses never change the stored data. */
+    private static Station copy(Station s) {
+        List<Charger> chargers = new ArrayList<>();
+        s.getChargers().forEach(c -> chargers.add(new Charger(c.getId(), c.getConnectorType(), c.getPowerKw(), c.getStatus())));
+        return new Station(s.getId(), s.getCityId(), s.getName(), s.getOperator(), s.getAddress(), s.getArea(),
+                s.getLatitude(), s.getLongitude(), s.getPricePerKwh(), s.getRating(), s.getOpenHours(),
+                List.copyOf(s.getAmenities()), chargers, s.getSource());
+    }
+
+    // ------------------------------------------------------------------ reservations
+
+    @Override
+    public List<Reservation> findReservations(int userId, Function<String, Station> stationLookup) {
+        List<Reservation> result = new ArrayList<>();
+        for (Row row : reservations) {
+            if (row.userId != userId) continue;
+            Station station = stationLookup.apply(row.stationId);
+            Charger charger = station == null ? null : station.findCharger(row.chargerId);
+            if (charger == null) continue;
+            Reservation r = new Reservation(row.id(), station, charger, row.date, row.slot, row.status, row.createdAt);
+            r.setNote(row.note);
+            result.add(r);
+        }
+        return result;
+    }
+
+    @Override
+    public boolean isSlotTaken(String stationId, String chargerId, LocalDate date, String slot) {
+        return findBooking(stationId, chargerId, date, Reservation.slotStart(slot)).isPresent();
+    }
+
+    @Override
+    public Set<String> findBookedChargers(LocalDate date, LocalTime slotStart) {
+        Set<String> keys = new HashSet<>();
+        for (Row r : reservations) {
+            if (r.active() && r.date.equals(date) && Reservation.slotStart(r.slot).equals(slotStart)) {
+                keys.add(r.stationId + "/" + r.chargerId);
+            }
+        }
+        return keys;
+    }
+
+    @Override
+    public Optional<BookingRef> findBooking(String stationId, String chargerId, LocalDate date, LocalTime slotStart) {
+        return reservations.stream()
+                .filter(r -> r.active() && r.stationId.equals(stationId) && r.chargerId.equals(chargerId)
+                        && r.date.equals(date) && Reservation.slotStart(r.slot).equals(slotStart))
+                .findFirst().map(r -> new BookingRef(r.id(), r.userId));
+    }
+
+    @Override
+    public Reservation createReservation(int userId, Station station, Charger charger, LocalDate date, String slot,
+                                         LocalDateTime createdAt) {
+        if (isSlotTaken(station.getId(), charger.getId(), date, slot)) {
+            throw new ConflictException("That time slot was just booked by another driver. Please pick another.");
+        }
+        Row row = new Row(nextReservationNumber++, userId, station.getId(), charger.getId(), date, slot, createdAt);
+        reservations.add(row);
+        return new Reservation(row.id(), station, charger, date, slot, ReservationStatus.CONFIRMED, createdAt);
+    }
+
+    @Override
+    public void updateStatus(String reservationId, ReservationStatus status, String note) {
+        row(reservationId).ifPresent(r -> {
+            r.status = status;
+            r.note = note;
+        });
+    }
+
+    @Override
+    public void completeEndedBookings(LocalDateTime now) {
+        for (Row r : reservations) {
+            if (r.status == ReservationStatus.CONFIRMED && !r.slotEnd().isAfter(now)) {
+                r.status = ReservationStatus.COMPLETED;
+                if (r.note == null) r.note = "Slot ended.";
+            }
+        }
+    }
+
+    @Override
+    public List<BookingRef> reportChargerProblem(String stationId, String chargerId, LocalDateTime now, String note) {
+        updateChargerStatus(stationId, chargerId, ChargerStatus.OUT_OF_SERVICE);
+        List<BookingRef> affected = new ArrayList<>();
+        for (Row r : reservations) {
+            if (r.status == ReservationStatus.CONFIRMED && r.stationId.equals(stationId)
+                    && r.chargerId.equals(chargerId) && r.slotEnd().isAfter(now)) {
+                r.status = ReservationStatus.ACTION_REQUIRED;
+                r.note = note;
+                affected.add(new BookingRef(r.id(), r.userId));
+            }
+        }
+        return affected;
+    }
+
+    @Override
+    public void moveReservation(String reservationId, Station newStation, Charger newCharger, String note) {
+        Row row = row(reservationId)
+                .orElseThrow(() -> new ConflictException("Reservation " + reservationId + " no longer exists."));
+        boolean taken = reservations.stream().anyMatch(r -> r != row && r.active()
+                && r.stationId.equals(newStation.getId()) && r.chargerId.equals(newCharger.getId())
+                && r.date.equals(row.date) && r.slot.equals(row.slot));
+        if (taken) {
+            throw new ConflictException("That time slot is already booked at " + newStation.getName()
+                    + ". Please choose another alternative.");
+        }
+        row.stationId = newStation.getId();
+        row.chargerId = newCharger.getId();
+        row.status = ReservationStatus.CONFIRMED;
+        row.note = note;
+    }
+
+    @Override
+    public int deleteInactive(int userId) {
+        int before = reservations.size();
+        reservations.removeIf(r -> r.userId == userId && !r.active());
+        return before - reservations.size();
+    }
+
+    private Optional<Row> row(String reservationId) {
+        return reservations.stream().filter(r -> r.id().equals(reservationId)).findFirst();
+    }
+
+    // ------------------------------------------------------------------ charging check-ins
+
+    @Override
+    public List<ChargingSession> findActiveSessions(LocalDateTime now) {
+        sessions.removeIf(s -> !s.endsAt().isAfter(now));
+        return List.copyOf(sessions);
+    }
+
+    @Override
+    public Optional<ChargingSession> findActiveSession(int userId, LocalDateTime now) {
+        return findActiveSessions(now).stream().filter(s -> s.userId() == userId).findFirst();
+    }
+
+    @Override
+    public void startSession(ChargingSession session) {
+        boolean busy = findActiveSessions(session.startedAt()).stream().anyMatch(s -> s.userId() == session.userId()
+                || (s.stationId().equals(session.stationId()) && s.chargerId().equals(session.chargerId())));
+        if (busy) {
+            throw new ConflictException("Someone just started charging there, or you are already charging elsewhere.");
+        }
+        sessions.add(session);
+    }
+
+    @Override
+    public Optional<ChargingSession> endSession(int userId, LocalDateTime now) {
+        Optional<ChargingSession> active = findActiveSession(userId, now);
+        active.ifPresent(sessions::remove);
+        return active;
+    }
+
+    // ------------------------------------------------------------------ notifications & activity
+
+    @Override
+    public List<AppNotification> findNotifications(int userId) {
+        return new ArrayList<>(listOf(notifications, userId));
+    }
+
+    @Override
+    public void addNotification(int userId, NotificationType type, String title, String message,
+                                LocalDateTime time, String reservationId) {
+        listOf(notifications, userId).add(new AppNotification(nextNotificationId++, type, title, message,
+                time, reservationId, false));
+    }
+
+    @Override
+    public void markRead(int notificationId) {
+        notifications.values().stream().flatMap(List::stream)
+                .filter(n -> n.getId() == notificationId).forEach(n -> n.setRead(true));
+    }
+
+    @Override
+    public void markAllRead(int userId) {
+        listOf(notifications, userId).forEach(n -> n.setRead(true));
+    }
+
+    @Override
+    public void deleteNotification(int notificationId) {
+        notifications.values().forEach(list -> list.removeIf(n -> n.getId() == notificationId));
+    }
+
+    @Override
+    public int deleteRead(int userId) {
+        List<AppNotification> list = listOf(notifications, userId);
+        int before = list.size();
+        list.removeIf(AppNotification::isRead);
+        return before - list.size();
+    }
+
+    @Override
+    public void addActivity(int userId, ActivityItem item) {
+        listOf(activities, userId).add(item);
+    }
+
+    @Override
+    public List<ActivityItem> findActivity(int userId, int limit) {
+        return listOf(activities, userId).stream()
+                .sorted(Comparator.comparing(ActivityItem::time).reversed())
+                .limit(limit)
+                .toList();
+    }
+
+    // ------------------------------------------------------------------ settings
+
+    @Override
+    public UserSettings loadSettings(int userId) {
+        return settings.getOrDefault(userId, UserSettings.defaults(City.PUNE));
+    }
+
+    @Override
+    public void saveSettings(int userId, UserSettings userSettings) {
+        settings.put(userId, userSettings);
+    }
+
+    private static <T> List<T> listOf(Map<Integer, List<T>> map, int userId) {
+        return map.computeIfAbsent(userId, id -> new ArrayList<>());
     }
 }

@@ -42,8 +42,7 @@ public class ReservationsView extends BaseView implements Refreshable {
 
         if (!app.getReservationService().hasAnyReservations()) {
             content.getChildren().add(new EmptyState(Icons.CALENDAR, "No reservations yet",
-                    "When you reserve a charger it will appear here. Reservations in this demo are simulated "
-                            + "and kept only for the current session.",
+                    "When you reserve a charger it will appear here, along with your past and cancelled bookings.",
                     "Find Stations", () -> app.navigate(Screen.FIND_STATIONS)));
             return;
         }
@@ -104,7 +103,7 @@ public class ReservationsView extends BaseView implements Refreshable {
                 .getByStatus(ReservationStatus.COMPLETED, ReservationStatus.CANCELLED).isEmpty()) {
             Button clear = Ui.secondaryButton("Clear History", null);
             clear.setOnAction(e -> app.confirm("Clear reservation history?",
-                    "Completed and cancelled reservations will be removed from this session.",
+                    "Completed and cancelled reservations will be deleted from your history.",
                     "Clear History", true, () -> {
                         int removed = app.getReservationService().clearPastReservations();
                         app.showToast(Format.plural(removed, "reservation") + " removed", AppController.ToastType.INFO);
@@ -152,7 +151,7 @@ public class ReservationsView extends BaseView implements Refreshable {
 
         if (attention) {
             card.getChildren().add(Ui.notice(Icons.WARNING,
-                    "Your reserved charger is unavailable (simulated event). Choose a compatible alternative.", "warning"));
+                    "Your reserved charger was reported out of service. Choose a compatible alternative.", "warning"));
         } else if (r.getNote() != null) {
             card.getChildren().add(Ui.label(r.getNote(), "small-muted"));
         }

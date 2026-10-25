@@ -32,7 +32,9 @@ public class ReservationDialog extends DialogShell {
     private final Label errorLabel = Ui.wrapLabel("", "form-error");
 
     public ReservationDialog(AppController app, Station station, Charger preferredCharger) {
-        super(app, "Reserve a charger", "Simulated booking - kept only for this session", 620);
+        super(app, "Reserve a charger", app.isDatabaseMode()
+                ? "Your booking is saved and blocks this slot for every other driver"
+                : "Offline mode - this booking is kept only until the app closes", 620);
         this.station = station;
 
         // Selected station
@@ -149,7 +151,7 @@ public class ReservationDialog extends DialogShell {
         slotHint.setText(free == 0
                 ? "No free slots on this date. Please choose another day."
                 : free + " of " + ReservationService.TIME_SLOTS.size() + " slots available on " + Format.date(date)
-                + " (other bookings are simulated).");
+                + " · grey slots are booked by drivers or already over.");
         updateSummary();
     }
 
@@ -172,7 +174,7 @@ public class ReservationDialog extends DialogShell {
                         {"Charger", charger == null ? "-" : charger.getLabel()},
                         {"Date", date == null ? "-" : Format.longDate(date)},
                         {"Time slot", slot == null ? "Not selected yet" : slot},
-                        {"Estimated charge", energyText + " (1 hour, sample tariff)"}
+                        {"Estimated charge", energyText + " (1 hour, price " + station.priceNote().replaceAll("[()]", "") + ")"}
                 }));
     }
 

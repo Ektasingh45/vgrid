@@ -46,13 +46,13 @@ public class RecommendationService {
      */
     public List<RecommendationResult> findAlternatives(Reservation reservation, int limit) {
         Station original = reservation.getStation();
-        Location origin = new Location(original.getName(), original.getMapX(), original.getMapY());
+        Location origin = new Location(original.getName(), original.getLatitude(), original.getLongitude());
         RecommendationRequest request = new RecommendationRequest(origin,
                 reservation.getCharger().getConnectorType(), 20, 90, 0, reservation.getSlotStart());
 
         List<RecommendationResult> results = new ArrayList<>();
-        for (Station station : stationService.getAllStations()) {
-            if (station == original) continue;
+        for (Station station : stationService.stationsIn(original.getCityId())) {
+            if (station.getId().equals(original.getId())) continue;
             RecommendationResult result = evaluate(station, request);
             if (result != null) {
                 results.add(result);
@@ -100,8 +100,8 @@ public class RecommendationService {
                 + " (your limit: " + request.maxWaitMinutes() + " min)");
         reasons.add(Format.distance(distance) + " from " + request.startLocation().name()
                 + " (your limit: " + Format.distance(request.maxDistanceKm()) + ")");
-        reasons.add("Simulated congestion: " + congestion
-                + (StationService.isPeakHour(arrival) ? " (peak hour)" : ""));
+        reasons.add("Congestion: " + congestion + " (from chargers in use or reserved now"
+                + (StationService.isPeakHour(arrival) ? ", raised for peak hour)" : ")"));
 
         String summary = Format.distance(distance) + " away with a " + Format.minutes(wait)
                 + " predicted wait and " + congestion.toString().toLowerCase() + " congestion.";

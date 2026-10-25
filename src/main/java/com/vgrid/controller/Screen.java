@@ -9,7 +9,7 @@ public enum Screen {
     RECOMMENDATIONS("Smart Recommendations", "Let VGrid rank the best station for your trip", Icons.SPARKLE, true),
     RESERVATIONS("My Reservations", "View and manage your charger bookings", Icons.CALENDAR, true),
     ALERTS("Alerts", "Updates about your reservations and chargers", Icons.BELL, true),
-    SETTINGS("Settings", "Your charging preferences for this session", Icons.TUNE, true),
+    SETTINGS("Settings", "Your charging preferences", Icons.TUNE, true),
     ALTERNATIVES("Alternative Chargers", "Reservation protection · compatible alternatives", Icons.SWAP, false);
 
     private final String title;

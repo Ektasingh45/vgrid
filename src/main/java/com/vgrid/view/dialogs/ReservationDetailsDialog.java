@@ -34,12 +34,13 @@ public class ReservationDetailsDialog extends DialogShell {
                 {"Charging power", Format.power(r.getCharger().getPowerKw())},
                 {"Date", Format.longDate(r.getDate())},
                 {"Time slot", r.getTimeSlot()},
-                {"Price", Format.price(r.getStation().getPricePerKwh()) + " (sample tariff)"}
+                {"Price", Format.price(r.getStation().getPricePerKwh()) + " " + r.getStation().priceNote()}
         }));
 
         if (r.getStatus() == ReservationStatus.ACTION_REQUIRED) {
             body.getChildren().add(Ui.notice(Icons.WARNING,
-                    "The reserved charger is unavailable (simulated). Review compatible alternatives.", "warning"));
+                    (r.getNote() == null ? "The reserved charger was reported out of service." : r.getNote())
+                            + " Review compatible alternatives.", "warning"));
         } else if (r.getNote() != null) {
             body.getChildren().add(Ui.notice(Icons.INFO, r.getNote(), "info"));
         }

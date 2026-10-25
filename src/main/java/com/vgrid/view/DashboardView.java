@@ -29,6 +29,25 @@ public class DashboardView extends BaseView implements Refreshable {
     @Override
     public void refresh() {
         content.getChildren().setAll(buildHero(), buildSummaryCards(), buildRecommended(), buildBottomRow());
+        app.getChargingService().getActiveSession()
+                .ifPresent(session -> content.getChildren().add(1, buildChargingNow(session)));
+    }
+
+    /** Shown while the user is checked in at a charger. */
+    private Node buildChargingNow(ChargingSession session) {
+        Station station = app.getStationService().findStation(session.stationId());
+        String where = (station == null ? session.stationId() : station.getName()) + " · charger " + session.chargerId();
+        VBox texts = new VBox(2, Ui.label("You are charging at " + where, "banner-title-green"),
+                Ui.label("Started " + Format.relative(session.startedAt()) + " · the charger shows as In use to "
+                        + "everyone until you press Done (at most one hour)"
+                        + (session.reservationId() == null ? "" : " · booking " + session.reservationId()), "banner-text-green"));
+        HBox.setHgrow(texts, Priority.ALWAYS);
+        Button done = Ui.primaryButton("Done Charging", Icons.CHECK);
+        done.setOnAction(e -> app.stopCharging());
+        HBox banner = new HBox(14, Ui.iconTile(Icons.BOLT, "success", 44, 22), texts, done);
+        banner.setAlignment(Pos.CENTER_LEFT);
+        banner.getStyleClass().add("banner-charging");
+        return banner;
     }
 
     private Node buildHero() {
@@ -42,8 +61,10 @@ public class DashboardView extends BaseView implements Refreshable {
         smart.setOnAction(e -> app.navigate(Screen.RECOMMENDATIONS));
 
         VBox left = new VBox(12,
-                Ui.label("DEMO MODE  ·  SIMULATED DATA", "hero-chip"),
-                Ui.wrapLabel("Ready for your next charge?", "hero-title"),
+                Ui.label(app.getStationService().getCity().name().toUpperCase() + "  ·  "
+                        + Format.plural(app.getStationService().getAllStations().size(), "station").toUpperCase()
+                        + (app.isDatabaseMode() ? "  ·  SAVED IN MYSQL" : "  ·  OFFLINE MODE"), "hero-chip"),
+                Ui.wrapLabel("Hi " + app.getUser().name().split(" ")[0] + ", ready for your next charge?", "hero-title"),
                 Ui.wrapLabel("Find the right charger with less waiting.", "hero-subtitle"),
                 new HBox(12, find, smart));
         HBox.setHgrow(left, Priority.ALWAYS);
@@ -85,7 +106,7 @@ public class DashboardView extends BaseView implements Refreshable {
                         "Free right now at nearby stations")
                         .onClick(() -> app.navigate(Screen.FIND_STATIONS)),
                 new SummaryCard(Icons.CLOCK, "amber", averageWait + " min", "Average Waiting Time",
-                        "Simulated, across nearby stations")
+                        "Estimated from free chargers nearby")
                         .onClick(() -> app.navigate(Screen.RECOMMENDATIONS)),
                 new SummaryCard(Icons.CALENDAR, "navy", String.valueOf(active), "Active Reservations",
                         attention > 0 ? attention + " need your attention" : "Everything is on track")
@@ -114,7 +135,7 @@ public class DashboardView extends BaseView implements Refreshable {
 
         VBox section = new VBox(14, Ui.sectionHeader("Recommended stations",
                 "Best " + settings.getPreferredConnector() + " options near " + settings.getHomeLocation().name()
-                        + " right now · based on simulated congestion", viewAll), grid);
+                        + " right now · based on current bookings and check-ins", viewAll), grid);
         if (stations.isEmpty()) {
             section.getChildren().set(1, new EmptyState(Icons.SEARCH, "No stations nearby",
                     "Try increasing your maximum travel distance in Settings.", "Open Settings",
@@ -171,7 +192,7 @@ public class DashboardView extends BaseView implements Refreshable {
         card.getChildren().addAll(top, metrics);
         if (r.getStatus() == ReservationStatus.ACTION_REQUIRED) {
             card.getChildren().add(Ui.notice(Icons.WARNING,
-                    "Reserved charger is unavailable (simulated). Choose a compatible alternative.", "warning"));
+                    "Your reserved charger was reported out of service. Choose a compatible alternative.", "warning"));
         }
         card.getChildren().add(new HBox(10, details, main));
         return card;
@@ -179,7 +200,7 @@ public class DashboardView extends BaseView implements Refreshable {
 
     private Node buildActivityCard() {
         VBox card = Ui.card();
-        card.getChildren().add(Ui.sectionHeader("Recent activity", "What happened recently (sample data + this session)"));
+        card.getChildren().add(Ui.sectionHeader("Recent activity", "Your latest bookings, check-ins and reports"));
 
         List<ActivityItem> items = app.getNotificationService().getRecentActivity(5);
         if (items.isEmpty()) {

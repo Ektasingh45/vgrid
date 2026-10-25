@@ -231,6 +231,9 @@
 .notice-warning { -fx-background-color: #FFF6E5; -fx-border-color: #F8D08A; -fx-border-radius: 12; }
 .notice-warning .icon { -fx-background-color: #D48806; }
 .notice-warning .notice-text { -fx-text-fill: #7A4A00; }
+.notice-danger { -fx-background-color: #FDECEC; -fx-border-color: #F7C1C1; -fx-border-radius: 12; }
+.notice-danger .icon { -fx-background-color: #B42318; }
+.notice-danger .notice-text { -fx-text-fill: #912018; }
 
 .separator .line { -fx-border-color: -vg-border; -fx-border-width: 1 0 0 0; }
 
@@ -313,6 +316,7 @@
     -fx-padding: 14;
 }
 .demo-card .icon { -fx-background-color: -vg-amber; }
+.demo-card-db .icon { -fx-background-color: #3DDC97; }
 .demo-card-title { -fx-text-fill: white; -fx-font-weight: bold; }
 .demo-card-text { -fx-text-fill: #98A2B3; -fx-font-size: 11.5px; }
 
@@ -335,6 +339,56 @@
     -fx-graphic-text-gap: 6;
 }
 .demo-pill .icon { -fx-background-color: #D48806; }
+.db-pill {
+    -fx-background-color: -vg-mint;
+    -fx-background-radius: 999;
+    -fx-padding: 5 12 5 10;
+    -fx-text-fill: #0E7A4E;
+    -fx-font-size: 11.5px;
+    -fx-font-weight: bold;
+    -fx-graphic-text-gap: 6;
+}
+.db-pill .icon { -fx-background-color: -vg-green; }
+.city-pill {
+    -fx-background-color: #EEF2F6;
+    -fx-background-radius: 999;
+    -fx-padding: 5 12 5 10;
+    -fx-text-fill: #344054;
+    -fx-font-size: 11.5px;
+    -fx-font-weight: bold;
+    -fx-graphic-text-gap: 6;
+    -fx-cursor: hand;
+}
+.city-pill:hover { -fx-background-color: #E4E7EC; }
+.city-pill .icon { -fx-background-color: #475467; }
+
+/* "You are charging" banner on the dashboard */
+.banner-charging {
+    -fx-background-color: linear-gradient(to right, #ECFDF3, #F6FEF9);
+    -fx-background-radius: 16;
+    -fx-border-color: #A6E9C7;
+    -fx-border-radius: 16;
+    -fx-padding: 16 20 16 18;
+}
+.banner-title-green { -fx-font-size: 15px; -fx-font-weight: bold; -fx-text-fill: #0B5E3C; }
+.banner-text-green { -fx-text-fill: #1D6B47; }
+
+/* Small red text button ("Report problem") */
+.btn-ghost-danger { -fx-text-fill: #B42318; }
+.btn-ghost-danger .icon { -fx-background-color: #B42318; }
+.btn-ghost-danger:hover { -fx-background-color: #FDECEC; }
+
+/* "Loading stations…" overlay while slow work runs */
+.busy-overlay { -fx-background-color: rgba(16, 24, 40, 0.45); }
+.busy-card {
+    -fx-background-color: white;
+    -fx-background-radius: 18;
+    -fx-padding: 28 36 26 36;
+    -fx-max-width: 360;
+    -fx-effect: dropshadow(gaussian, rgba(16, 24, 40, 0.35), 40, 0, 0, 16);
+}
+.busy-card .progress-indicator { -fx-progress-color: -vg-green; }
+.busy-text { -fx-font-size: 14px; -fx-font-weight: bold; -fx-text-alignment: center; }
 .bell-badge {
     -fx-background-color: -vg-red;
     -fx-background-radius: 999;
@@ -701,6 +755,123 @@
 .toast-success .icon { -fx-background-color: #3DDC97; }
 .toast-error .icon { -fx-background-color: #FF7A7A; }
 .toast-info .icon { -fx-background-color: #F8C670; }
+
+/* ------------------------------------------------------------ login page */
+
+.auth-root { -fx-background-color: -vg-bg; }
+
+.auth-brand {
+    -fx-background-color:
+        linear-gradient(to bottom right, #101828, #15304A),
+        radial-gradient(center 15% 38%, radius 55%, rgba(22, 163, 106, 0.40), transparent);
+    -fx-padding: 36 48 30 48;
+}
+.auth-brand-name { -fx-text-fill: white; -fx-font-size: 22px; -fx-font-weight: bold; }
+.auth-brand-tagline { -fx-text-fill: #98A2B3; -fx-font-size: 12px; }
+.auth-headline { -fx-text-fill: white; -fx-font-size: 34px; -fx-font-weight: bold; -fx-line-spacing: 2; }
+.auth-lead { -fx-text-fill: #C8D0DC; -fx-font-size: 14.5px; }
+.auth-feature-title { -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 13.5px; }
+.auth-feature-text { -fx-text-fill: #98A2B3; -fx-font-size: 12.5px; }
+.auth-foot { -fx-text-fill: #667085; -fx-font-size: 11.5px; }
+.auth-orbit-node {
+    -fx-background-color: white;
+    -fx-background-radius: 999;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.30), 14, 0, 0, 4);
+}
+.auth-orbit-node .icon { -fx-background-color: #101828; }
+.auth-orbit-bolt { -fx-background-color: white; }
+
+.auth-side,
+.auth-side .page-scroll,
+.auth-side .page-scroll > .viewport { -fx-background-color: -vg-bg; }
+.auth-card {
+    -fx-background-color: white;
+    -fx-background-radius: 22;
+    -fx-border-color: -vg-border;
+    -fx-border-radius: 22;
+    -fx-padding: 34 36 30 36;
+    -fx-effect: dropshadow(gaussian, rgba(16, 24, 40, 0.10), 40, 0, 0, 14);
+}
+.auth-title { -fx-font-size: 26px; -fx-font-weight: bold; }
+.auth-subtitle { -fx-text-fill: -vg-text-2; -fx-font-size: 13.5px; }
+
+.auth-input {
+    -fx-background-color: white;
+    -fx-background-radius: 12;
+    -fx-border-color: -vg-input-border;
+    -fx-border-radius: 12;
+    -fx-padding: 0 8 0 14;
+    -fx-pref-height: 46;
+    -fx-min-height: 46;
+}
+.auth-input:hover { -fx-border-color: #98A2B3; }
+.auth-input:focus-within {
+    -fx-border-color: -vg-green;
+    -fx-effect: dropshadow(three-pass-box, rgba(22, 163, 106, 0.22), 6, 0.55, 0, 0);
+}
+.auth-input .text-field {
+    -fx-background-color: transparent;
+    -fx-border-width: 0;
+    -fx-padding: 0;
+    -fx-font-size: 14px;
+    -fx-pref-height: 44;
+}
+.auth-input > .icon-box .icon { -fx-background-color: -vg-text-3; }
+.auth-input:focus-within > .icon-box .icon { -fx-background-color: -vg-green; }
+.eye-button {
+    -fx-background-color: transparent;
+    -fx-background-radius: 8;
+    -fx-padding: 6;
+    -fx-cursor: hand;
+}
+.eye-button:hover { -fx-background-color: #F2F4F7; }
+.eye-button .icon { -fx-background-color: -vg-text-2; }
+
+.divider-line { -fx-background-color: -vg-border; -fx-min-height: 1; -fx-max-height: 1; }
+.divider-text { -fx-text-fill: -vg-text-3; -fx-font-size: 10.5px; -fx-font-weight: bold; }
+
+.demo-account {
+    -fx-background-color: #F9FAFB;
+    -fx-background-radius: 12;
+    -fx-border-color: -vg-border;
+    -fx-border-radius: 12;
+    -fx-padding: 10 12 10 10;
+    -fx-cursor: hand;
+}
+.demo-account:hover { -fx-background-color: #F0FDF6; -fx-border-color: #A6E9C7; }
+.demo-account-name { -fx-font-weight: bold; -fx-font-size: 12.5px; }
+.demo-account-email { -fx-text-fill: -vg-text-2; -fx-font-size: 11px; }
+.avatar-sm { -fx-min-width: 32; -fx-min-height: 32; -fx-font-size: 11.5px; }
+
+.link-button {
+    -fx-background-color: transparent;
+    -fx-padding: 0;
+    -fx-text-fill: -vg-green;
+    -fx-font-weight: bold;
+    -fx-cursor: hand;
+}
+.link-button:hover { -fx-underline: true; -fx-text-fill: -vg-green-pressed; }
+
+.status-pill {
+    -fx-background-radius: 999;
+    -fx-padding: 6 14 6 12;
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+    -fx-graphic-text-gap: 8;
+}
+.status-ok { -fx-background-color: -vg-mint; -fx-text-fill: #0E7A4E; }
+.status-warn { -fx-background-color: #FEF3DC; -fx-text-fill: #A15C00; }
+.status-wait { -fx-background-color: #EAEEF3; -fx-text-fill: #475467; }
+.status-wait .progress-indicator { -fx-progress-color: #667085; }
+.status-dot {
+    -fx-background-radius: 999;
+    -fx-min-width: 8;
+    -fx-min-height: 8;
+    -fx-max-width: 8;
+    -fx-max-height: 8;
+}
+.status-dot-ok { -fx-background-color: -vg-green; }
+.status-dot-warn { -fx-background-color: -vg-amber; }
 
 /* ------------------------------------------------------------ scroll bars & tooltips */
 
