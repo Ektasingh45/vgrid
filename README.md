@@ -77,13 +77,6 @@ Simulator (pretend chargers) --OCPP--> OCPP server --> MySQL --> VGrid app (ever
 | **Disconnect** | closes the WebSocket | **Offline** |
 
 
-## First use
-
-1. The login page's status pill should say **Connected · MySQL**.
-2. **Create an account.** There are no built-in accounts; your password is stored as a salted PBKDF2 hash.
-3. Your city starts as **Pune**; its real stations are downloaded on first sign-in.
-4. **Settings → City** to switch (Pune, Mumbai, Delhi NCR, Bengaluru, Hyderabad, Chennai). A new city is
-   downloaded the first time, then read from MySQL. **Refresh Stations** downloads the latest data again.
 
 
 
@@ -154,15 +147,3 @@ Score out of 100: `85 − 2.5×distance − 0.8×wait − congestion penalty (0/
 + 8 if a compatible charger is free (else −10) + up to 10 for higher power`. Distances use the Haversine
 formula on real coordinates × 1.25 for roads.
 
-## Known limitations
-
-- No live data from operators' chargers (they send OCPP only to their own servers); live status reflects VGrid
-  users' bookings, check-ins and reports, plus chargers connected to VGrid's own OCPP server.
-- The OCPP server implements the core of OCPP 1.6 only (no reservations sent to chargers, remote start/stop,
-  firmware updates or smart charging), accepts every idTag, and uses plain `ws://` without charger passwords.
-- Open Charge Map has no prices for most stations, opening hours or ratings: prices are estimates.
-- Each app window connects to MySQL directly with the password from `db.properties` — fine on one laptop or a
-  lab network; a real product would put a server (e.g. Spring Boot REST API) in between.
-- Email updates are not sent.
-
-Station data © Open Charge Map contributors, licensed CC BY 4.0.
