@@ -17,22 +17,6 @@ ranking, book one-hour slots, check in while charging, and move your booking if 
 - A free Open Charge Map API key (for real stations)
 - Internet the first time each city is loaded
 
-## Setup (once)
-
-1. **Install MySQL 8 Community Server** (dev.mysql.com → MySQL Installer for Windows → "Developer Default",
-   which also installs MySQL Workbench). Write down the root password.
-2. **Get an Open Charge Map API key:** sign up at <https://openchargemap.org> and register an application in
-   your profile. The site shows the key.
-3. **Edit `db.properties`** in the project folder:
-   ```
-   db.password=<your MySQL root password>
-   ocm.api.key=<your Open Charge Map key>
-   ```
-4. **Start the app** (below). The `vgrid` database and all tables (`src/main/resources/db/schema.sql`) are
-   created automatically.
-
-Without an API key, Pune uses 10 built-in sample stations and other cities cannot be loaded.
-With `data.mode=memory` the app never uses MySQL.
 
 ## Run
 
