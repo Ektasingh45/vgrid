@@ -92,14 +92,6 @@ Simulator (pretend chargers) --OCPP--> OCPP server --> MySQL --> VGrid app (ever
 | **Fault** / **Fixed** | `StatusNotification Faulted` (GroundFailure) / `Available` | **Out of service** + alerts / back in service |
 | **Disconnect** | closes the WebSocket | **Offline** |
 
-Charging time = (target % − battery %) × battery kWh ÷ charger kW. With **Demo speed** on, 1 second is
-1 simulated minute (a 22-minute charge takes 22 seconds). Every message appears in the simulator's log and in the
-server console.
-
-**Demo:** start `run-ocpp-server.bat`, then `run-vgrid.bat` (sign in, open the "VGrid OCPP Test Station"),
-then `run-charger-simulator.bat` → **Connect all** → **Plug in & charge** on C1 and watch it charge and free
-itself; press **Fault** on a charger someone booked to show the alert. In VS Code these are the tasks
-"Run OCPP server", "Run VGrid" and "Run charger simulator" (Terminal → Run Task…).
 
 ## First use
 
@@ -109,20 +101,7 @@ itself; press **Fault** on a charger someone booked to show the alert. In VS Cod
 4. **Settings → City** to switch (Pune, Mumbai, Delhi NCR, Bengaluru, Hyderabad, Chennai). A new city is
    downloaded the first time, then read from MySQL. **Refresh Stations** downloads the latest data again.
 
-## Demo script (for the viva)
 
-1. Show the login page (status pill), create an account, sign in.
-2. **Dashboard / Find Stations:** real stations of your city; open **View Details** — the data source line
-   and the Open Charge Map credit show where each value comes from.
-3. **Reserve Charger:** pick a charger, date and free slot → `VG-1001`. Close the app, reopen, sign in: still there.
-4. **Smart Recommendations:** explainable ranking; change the arrival time to 18:00 (peak) and compare.
-5. **Two users:** open a second window with `open-another-window.bat` and create a second account.
-   - Both pick the **same free slot** and confirm: only one booking succeeds (database UNIQUE key).
-   - In window 2 open a station and press **Start charging**: within 15 seconds window 1 shows that charger
-     as **In use**, and the station's congestion goes up. Press **Done** to free it.
-   - In window 2 press **Report problem** on the charger window 1 booked: window 1 gets an alert and its
-     booking needs action → **Find an Alternative** → **Confirm Change** (slot checked in a transaction).
-6. **Settings → City → Mumbai → Save:** real Mumbai stations are downloaded and shown.
 
 ## How live status and congestion work
 
@@ -183,15 +162,7 @@ Screens → AppController → Services → DAO interfaces → Jdbc*Dao → MySQL
                               └→ StationImportService → OpenChargeMapClient → Open Charge Map API (HTTPS/JSON)
 ```
 
-### Database rules that keep data safe
 
-- **No double booking:** UNIQUE key on (station, charger, date, slot, `active_flag`); `active_flag` is a
-  generated column (1 while active, NULL when completed/cancelled, so a released slot can be booked again).
-- **One check-in per charger and per user:** two UNIQUE keys on `charging_sessions`.
-- **Transactions:** switching a booking (lock rows with `SELECT … FOR UPDATE`, check the slot, update) and
-  reporting a problem (mark the charger out of service + flag every affected booking) commit or roll back as one.
-- **Foreign keys** link bookings, sessions, alerts and settings to users, and chargers to stations.
-- All SQL uses `PreparedStatement` (protects against SQL injection).
 
 ## Ranking (no machine learning)
 
